@@ -1,8 +1,6 @@
 import { execute as commonExecute, expandReferences } from 'language-common';
 import { resolve as resolveUrl } from 'url';
-
-var pg = require('pg');
-var jsonSql = require('json-sql')();
+import request from 'request';
 
 /** @module Adaptor */
 
@@ -31,90 +29,112 @@ export function execute(...operations) {
 }
 
 /**
- * Execute an SQL query
+ * Fetch data from the Khan Academy API
  * @example
  * execute(
- *   sql(params)
+ *   fetch(params)
  * )(state)
  * @constructor
  * @param {object} params - data to make the query
  * @returns {Operation}
  */
-export function insert(table, rowData) {
+export function fetch(params) {
 
   return state => {
 
     const {
-      host,
-      port,
-      database,
+      email,
       password,
-      user
+      consumerKey,
+      secretKey
     } = state.configuration;
 
-    const dataObject = expandReferences(rowData)(state);
+    const { getEndpoint, postUrl } = expandReferences(params)(state);
 
-    const sql = jsonSql.build({
-        type: 'insert',
-        table: table,
-        values: dataObject
+    const getUrl = resolveUrl('https://www.khanacademy.org/api/v1' + '/', getEndpoint)
+
+    console.log("Fetching data from URL: " + getUrl);
+
+    var request = require('request');
+    var qs = require('querystring');
+
+    var getTokenURL = 'https://www.khanacademy.org/api/auth2/request_token';
+    var authorizeURL  = 'https://www.khanacademy.org/api/auth2/authorize';
+    var accessTokenUrl = 'https://www.khanacademy.org/api/auth2/access_token';
+
+    var nativeOAuthOptions = {
+        consumer_key: consumerKey,
+        consumer_secret: secretKey
+    }
+
+    var req = request.post({url:getTokenURL, oauth: nativeOAuthOptions}, function (e, rsp, body) {
+        console.log("Response status", rsp.statusCode);
+        console.log("Response body", rsp.body);
+
+        // pull out the oauth_token and use it in the next post to authorize
+        var req_data = qs.parse(body);
+
+        var bodyParams = {
+            oauth_token: req_data.oauth_token,
+            identifier: email,
+            password: password
+        };
+
+        // authorize the token
+        request.post({followAllRedirects: true, url: authorizeURL, form: bodyParams},
+          function (e2, rsp2, body2) {
+          console.log("Response status", rsp2.statusCode);
+          console.log("Response body", rsp2.body);
+
+          // configure authorized request for oauth
+          var hasToken = {
+              consumer_key: consumerKey,
+              consumer_secret: secretKey,
+              token: req_data.oauth_token,
+              token_secret: req_data.oauth_token_secret
+          }
+
+          request.get({url: accessTokenUrl, oauth: hasToken}, function (e3, rsp3, body3) {
+            console.log("Response status", rsp3.statusCode);
+            console.log("Response body", rsp3.body);
+
+            var access_data = qs.parse(body3);
+
+            // confiure request with shiny new access token
+            var hasAccess = {
+                consumer_key: consumerKey,
+                consumer_secret: secretKey,
+                token: access_data.oauth_token,
+                token_secret: access_data.oauth_token_secret
+            }
+
+            // make authenticated request
+            request.get({url: "https://www.khanacademy.org/api/v1/user", oauth: hasAccess}, function (e4, rsp4, body4) {
+              console.log("Response status", rsp4.statusCode);
+              console.log("Response body", rsp4.body);
+
+              if ([200,201,202].indexOf(rsp4.statusCode) == -1 || e4) {
+                console.error("GET failed.");
+              } else {
+                console.log("GET succeeded.");
+                request.post ({
+                  url: postUrl,
+                  json: JSON.parse(body4)
+                }, function(error, response, postResponseBody){
+                  if(error) {
+                    console.error("Post failed.")
+                  } else {
+                    console.log("POST succeeded.");
+                  }
+                })
+              }
+            });
+
+          });
+
+        });
+
     });
-
-    const body = Object.keys(sql.values).reduce(
-      function(query, valueKey) {
-        return query.replace(`\$${valueKey}`, `'${sql.values[valueKey]}'`)
-      },
-      sql.query
-    )
-
-    console.log(body)
-
-    // create a config to configure both pooling behavior
-    // and client options
-    // note: all config is optional and the environment variables
-    // will be read if the config is not present
-    var config = {
-      host: host,
-      port: port,
-      database: database,
-      user: user,
-      password: password,
-      ssl: true
-    };
-
-    //this initializes a connection pool
-    //it will keep idle connections open for a 30 seconds
-    //and set a limit of maximum 10 idle clients
-    var pool = new pg.Pool(config);
-
-    // to run a query we can acquire a client from the pool,
-    // run a query on the client, and then return the client to the pool
-    pool.connect(function(err, client, done) {
-      if(err) {
-        return console.error('error fetching client from pool', err);
-      }
-      client.query(body, function(err, result) {
-        // call `done()` to release the client back to the pool
-        done();
-
-        if(err) {
-          return console.error('error running query', err);
-        }
-        console.log(result);
-        //output: 1
-      });
-    });
-
-    pool.on('error', function (err, client) {
-      // if an error is encountered by a client while it sits idle in the pool
-      // the pool itself will emit an error event with both the error and
-      // the client which emitted the original error
-      // this is a rare occurrence but can happen if there is a network
-      //  partition between your application and the database, the database
-      //  restarts, etc.
-      // and so you might want to handle it and at least log it out
-      console.error('idle client error', err.message, err.stack)
-    })
 
   }
 }

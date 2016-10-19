@@ -15,8 +15,7 @@
   ],
   "dependencies": {
     "language-common": "github:openfn/language-common",
-    "pg": "^6.1.0",
-    "json-sql": "^0.3.8"
+    "request": "^2.75.0"
   },
   "devDependencies": {
     "assertion-error": "^1.0.1",
