@@ -1,6 +1,7 @@
 import { execute as commonExecute, expandReferences } from 'language-common';
 import { resolve as resolveUrl } from 'url';
 import request from 'request';
+import qs from 'qs';
 
 /** @module Adaptor */
 
@@ -49,14 +50,12 @@ export function fetch(params) {
       secretKey
     } = state.configuration;
 
-    const { getEndpoint, postUrl } = expandReferences(params)(state);
+    const { getEndpoint, queryParams, postUrl } = expandReferences(params)(state);
 
-    const getUrl = resolveUrl('https://www.khanacademy.org/api/v1' + '/', getEndpoint)
+    const query = qs.stringify(queryParams)
+    const getUrl = resolveUrl('https://www.khanacademy.org/api/v1' + '/', getEndpoint + '?' + query)
 
     console.log("Fetching data from URL: " + getUrl);
-
-    var request = require('request');
-    var qs = require('querystring');
 
     var getTokenURL = 'https://www.khanacademy.org/api/auth2/request_token';
     var authorizeURL  = 'https://www.khanacademy.org/api/auth2/authorize';
@@ -109,7 +108,7 @@ export function fetch(params) {
             }
 
             // make authenticated request
-            request.get({url: "https://www.khanacademy.org/api/v1/user", oauth: hasAccess}, function (e4, rsp4, body4) {
+            request.get({url: getUrl, oauth: hasAccess}, function (e4, rsp4, body4) {
               console.log("Response status", rsp4.statusCode);
               console.log("Response body", rsp4.body);
 

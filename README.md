@@ -5,21 +5,28 @@ Language Pack for building expressions and operations to make HTTP calls.
 
 Documentation
 -------------
-## get
+## fetch
 
 #### required configuration for a Khan teacher/school account
 ```json
 {
-  "username": "some-host-url.compute-1.amazonaws.com",
-  "password": "5432",
-  "apiToken": "wouldntyouliketoknow"
+  "email": "yours",
+  "password": "notmine",
+  "consumerKey": "somEThINGkeyish",
+  "secretKey": "otherThiNGfSECret"
 }
 
 ```
 
 #### sample usage
 ```js
-get("badges", "username")
+fetch({
+  "getEndpoint": "user",
+  "queryParams": {
+    "email": "jay.kloppenberg@ase.org.za"
+  },
+  "postUrl": "https://www.openfn.org/inbox/07a6ff42-f534-438e-99c4-5fb7e78efe99",
+})
 ```
 
 Development
