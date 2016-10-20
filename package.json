@@ -1,6 +1,6 @@
 {
   "name": "language-khanacademy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Khan Academy Language Pack for OpenFn",
   "main": "lib/index.js",
   "scripts": {
