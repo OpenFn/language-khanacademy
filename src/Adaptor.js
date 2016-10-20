@@ -53,6 +53,7 @@ export function fetch(params) {
     const { getEndpoint, queryParams, postUrl } = expandReferences(params)(state);
 
     const query = qs.stringify(queryParams)
+
     const getUrl = resolveUrl('https://www.khanacademy.org/api/v1' + '/', getEndpoint + '?' + query)
 
     console.log("Fetching data from URL: " + getUrl);
@@ -67,8 +68,11 @@ export function fetch(params) {
     }
 
     var req = request.post({url:getTokenURL, oauth: nativeOAuthOptions}, function (e, rsp, body) {
-        console.log("Response status", rsp.statusCode);
-        console.log("Response body", rsp.body);
+
+      if ([200,201,202].indexOf(rsp.statusCode) == -1 || e) {
+        console.error("Token request failed.");
+        throw new Error('Token request failed.')
+      } else {
 
         // pull out the oauth_token and use it in the next post to authorize
         var req_data = qs.parse(body);
@@ -80,58 +84,66 @@ export function fetch(params) {
         };
 
         // authorize the token
-        request.post({followAllRedirects: true, url: authorizeURL, form: bodyParams},
-          function (e2, rsp2, body2) {
-          console.log("Response status", rsp2.statusCode);
-          console.log("Response body", rsp2.body);
+        request.post({followAllRedirects: true, url: authorizeURL, form: bodyParams}, function (e2, rsp2, body2) {
 
-          // configure authorized request for oauth
-          var hasToken = {
-              consumer_key: consumerKey,
-              consumer_secret: secretKey,
-              token: req_data.oauth_token,
-              token_secret: req_data.oauth_token_secret
-          }
+          if ([200,201,202].indexOf(rsp2.statusCode) == -1 || e2) {
+            console.error("Token auhorization failed.");
+            throw new Error('Token authorization failed.')
+          } else {
 
-          request.get({url: accessTokenUrl, oauth: hasToken}, function (e3, rsp3, body3) {
-            console.log("Response status", rsp3.statusCode);
-            console.log("Response body", rsp3.body);
-
-            var access_data = qs.parse(body3);
-
-            // confiure request with shiny new access token
-            var hasAccess = {
+            // configure authorized request for oauth
+            var hasToken = {
                 consumer_key: consumerKey,
                 consumer_secret: secretKey,
-                token: access_data.oauth_token,
-                token_secret: access_data.oauth_token_secret
+                token: req_data.oauth_token,
+                token_secret: req_data.oauth_token_secret
             }
 
-            // make authenticated request
-            request.get({url: getUrl, oauth: hasAccess}, function (e4, rsp4, body4) {
-              console.log("Response status", rsp4.statusCode);
-              console.log("Response body", rsp4.body);
+            request.get({url: accessTokenUrl, oauth: hasToken}, function (e3, rsp3, body3) {
 
-              if ([200,201,202].indexOf(rsp4.statusCode) == -1 || e4) {
-                console.error("GET failed.");
+              if ([200,201,202].indexOf(rsp3.statusCode) == -1 || e3) {
+                console.error("Token exchange failed.");
+                throw new Error('Token exchange failed.')
               } else {
-                console.log("GET succeeded.");
-                request.post ({
-                  url: postUrl,
-                  json: JSON.parse(body4)
-                }, function(error, response, postResponseBody){
-                  if(error) {
-                    console.error("Post failed.")
-                  } else {
-                    console.log("POST succeeded.");
-                  }
-                })
-              }
-            });
+                // console.log("Token exchange succeeded.");
+                var access_data = qs.parse(body3);
 
-          });
+                // confiure request with shiny new access token
+                var hasAccess = {
+                    consumer_key: consumerKey,
+                    consumer_secret: secretKey,
+                    token: access_data.oauth_token,
+                    token_secret: access_data.oauth_token_secret
+                }
+
+                // make authenticated request
+                request.get({url: getUrl, oauth: hasAccess}, function (e4, rsp4, body4) {
+
+                  if ([200,201,202].indexOf(rsp4.statusCode) == -1 || e4) {
+                    console.error("GET failed.");
+                    throw new Error('Get failed.')
+                  } else {
+                    console.log("GET succeeded.");
+                    request.post ({
+                      url: postUrl,
+                      json: JSON.parse(body4)
+                    }, function(error, response, postResponseBody){
+                      if(error) {
+                        console.error("Post failed.")
+                      } else {
+                        console.log("POST succeeded.");
+                      }
+                    })
+                  }
+                });
+              };
+
+            });
+          };
 
         });
+
+      }
 
     });
 
