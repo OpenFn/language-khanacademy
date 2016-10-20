@@ -23,9 +23,9 @@ Documentation
 fetch({
   "getEndpoint": "user",
   "queryParams": {
-    "email": "jay.kloppenberg@ase.org.za"
+    "email": "thisoneuser@something.org"
   },
-  "postUrl": "https://www.openfn.org/inbox/07a6ff42-f534-438e-99c4-5fb7e78efe99",
+  "postUrl": "https://www.openfn.org/inbox/your-uuid",
 })
 ```
 
