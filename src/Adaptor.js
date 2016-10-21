@@ -170,6 +170,7 @@ export function fetch(params) {
             reject(error);
           } else {
             console.log("GET succeeded.")
+            console.log(body)
             resolve(body)
           }
         })
