@@ -7,7 +7,8 @@ Documentation
 -------------
 ## fetch
 
-#### required configuration for a Khan teacher/school account
+#### Sample configuration
+
 ```json
 {
   "email": "yours",
